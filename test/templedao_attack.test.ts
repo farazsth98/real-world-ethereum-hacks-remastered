@@ -48,6 +48,12 @@ describe('TempleDAO Exploit', async () => {
       stakingContract.address,
     );
 
+    console.log(
+      `[+] Before running the exploit, the staking contract contains ${
+        stakingContractBalanceBeforeAttack / Math.pow(10, 18)
+      } tokens`,
+    );
+
     // Run our exploit
     await attackerContract.exploit();
 
@@ -55,5 +61,8 @@ describe('TempleDAO Exploit', async () => {
     expect(await tokenContract.balanceOf(attacker.getAddress())).to.be.eq(
       stakingContractBalanceBeforeAttack,
     );
+
+    // And the staking contract should have 0 tokens
+    expect(await tokenContract.balanceOf(stakingContract.address)).to.be.eq(0);
   });
 });
