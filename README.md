@@ -7,10 +7,12 @@ npm install
 #### Hardhat
 
 This repo uses [hardhat](https://hardhat.org/).
-Hacks are implemented as hardhat tests in [`/test`](./test).
 
-The tests run on a local hardnet network but it needs to be forked from mainnet.
-To fork the Ethereum mainnet, you need access to an archive node like the free ones from [Alchemy](https://alchemyapi.io/).
+Exploits are implemented as hardhat tests in [`/test`](./test).
+
+Every exploit forks the mainnet at a specific block. Use [Alchemy](https://alchemyapi.io/) to get access to an archive node for free.
+
+See `test/templedao_attack.test.ts` for a quick example.
 
 #### Environment variables
 
@@ -48,3 +50,7 @@ For example:
 ```bash
 npx hardhat test test/templedao_attack.test.ts # or yarn templedao
 ```
+
+#### Credits
+
+- Stole the `forkFrom()` function from [cmichel](https://cmichel.io/).

@@ -7,3 +7,4 @@ artifacts
 git-crypt-key
 .env
 tenderly.yaml
+downloaded_contracts/
