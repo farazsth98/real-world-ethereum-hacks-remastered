@@ -21,10 +21,8 @@ describe('TempleDAO Exploit', async () => {
 
     // Get the contract ABI and subsquently the deployed contracts for the
     // staking contract as well as the LP token
-    const staking_contract_abi = await getAbi(
-      'contracts/StaxLPStakingExploit/StaxLPStakingABI.txt',
-    );
-    const token_contract_abi = await getAbi('contracts/StaxLPStakingExploit/StaxLPTokenABI.txt');
+    const staking_contract_abi = await getAbi('abis/StaxLPStakingABI.txt');
+    const token_contract_abi = await getAbi('abis/StaxLPTokenABI.txt');
 
     stakingContract = await ethers.getContractAt(staking_contract_abi, STAKING_CONTRACT_ADDRESS);
     tokenContract = await ethers.getContractAt(

@@ -21,7 +21,7 @@ Add your URL to your node to the `.env` file. I use Alchemy.
 ```bash
 cp .env.template .env
 # fill out
-ARCHIVE_URL=https://eth-mainnet.alchemyapi.io/v2/...
+ETH_ARCHIVE_URL=https://eth-mainnet.alchemyapi.io/v2/...
 ```
 
 #### Downloading verified contracts from etherscan
