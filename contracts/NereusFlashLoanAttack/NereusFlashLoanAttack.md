@@ -145,6 +145,18 @@ These two steps essentially:
 
 The attacker swaps 506,547.7316047751 WAVAX for 50,426,896.250037 USDC
 
-Right now, the attacker has 998,000 NXUSD + 50,426,896 USDC. Assuming both are equal, the attacker now has 51,424,896 USDC, when they started off with a flash loan of 51 million.
+Right now, the attacker has 998,000 NXUSD + 50,426,896 USDC. Assuming both are equal, the attacker now has 51,424,896 USDC, when they started off with a flash loan of 51 million. The premium in this case is 25,500, so the attacker can get away with almost 400,000 USDC profit here.
 
-Gonna skip over the rest of the events because it's just normal transactions to convert the NXUSD to USDC
+### Past event 39
+
+Past this point, it was pretty hard to figure out what the attacker was doing.
+
+Looking at the transaction itself (not the logs), I decided to find a similar transaction in the same contract the attacker transfers his NXUSD into, and I found a very similar looking transaction where the output is avUSDC, just like in the attacker's transaction (the attacker later on goes on to convert the avUSDC to USDC.e, but we'll look at that later).
+
+That transaction in question is [this one](https://snowtrace.io/tx/0x662311af76a1212026adae483211beca317242d1aa8f4529f0c188f8d904191e). You can see the similarities between the attacker's transaction and this one.
+
+The function being called here is `exchange_underlying()`, with the pool being [this pool](https://snowtrace.io/address/0x6bf6fc7eaf84174bb7e1610efd865f0ebd2aa96d)
+
+Following this function, it calls the pool's `exchange_underlying()` function, which emits `TokenExchangeUnderlying` event. Looking for this event in the logs, we see it in event 50. With this, we can verify that the attacker called this function with `i = 0` (NXUSD token index), and `j = 2` (which ends up being the avUsdc token, because they access the `j-1` index inside the `underlying_coins[]` array).
+
+The avUsdc token is wrapped into USDC.e, and then sent back to the attacker. From here, the attacker can just use the Trader Joe Router to swap USDC.e for USDC, and the exploit is complete.

