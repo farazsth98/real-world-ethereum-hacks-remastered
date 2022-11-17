@@ -6,10 +6,13 @@ import '@tenderly/hardhat-tenderly';
 import './tasks/index';
 
 dotenv.config();
-const { ARCHIVE_URL } = process.env;
+const { ETH_ARCHIVE_URL, AV_ARCHIVE_URL } = process.env;
 
-if (!ARCHIVE_URL)
-  throw new Error(`ARCHIVE_URL env var not set. Copy .env.example to .env and set the env var`);
+// Just a sanity check, at least one archive URL should be set
+if (!ETH_ARCHIVE_URL || !AV_ARCHIVE_URL)
+  throw new Error(
+    `An archive URL has not been set in .env. Copy .env.example to .env and set the appropriate env var`,
+  );
 
 // Go to https://hardhat.org/config/ to learn more
 const config: HardhatUserConfig = {
@@ -17,7 +20,7 @@ const config: HardhatUserConfig = {
     hardhat: {
       loggingEnabled: false,
       forking: {
-        url: ARCHIVE_URL, // https://eth-mainnet.alchemyapi.io/v2/SECRET`,
+        url: AV_ARCHIVE_URL, // Set archive URL here
         blockNumber: 15700000, // we will set this in each test
       },
     },

@@ -1,20 +1,26 @@
 import sys
 import requests
 from pathlib import Path
-import os
 import json
+import argparse
 
 def print_usage():
-    print(f'''Etherscan Verified Contract Downloader
+    print(f'''Verified Contract Downloader
 Usage: 
-* python3 {sys.argv[0]} <contract_address>
-* python3 {sys.argv[0]} -f <filename.txt>
+* python3 {sys.argv[0]} -e [etherscan|snowscan] <contract_address>
+* python3 {sys.argv[0]} -e [etherscan|snowscan] -f <filename.txt>
 
 filename.txt must contain contract addresses, one on each line.
 ''')
 
 # Read the ETHERSCAN_API_KEY from .env
-def get_api_key():
+def get_api_key(endpoint):
+    # Get the API key name
+    if endpoint == ETHERSCAN_ENDPOINT:
+        api_key_name = 'ETHERSCAN_API_KEY'
+    else:
+        api_key_name = 'AVALANCHE_API_KEY'
+    
     with open('.env', 'r') as f:
         env_contents = f.read()
     
@@ -22,15 +28,15 @@ def get_api_key():
     
     for v in variables:
         [name, value] = v.split('=')
-        if name == 'ETHERSCAN_API_KEY':
+        if name == api_key_name:
             return value
 
-ENDPOINT = "https://api.etherscan.io/api?module=contract&action=getsourcecode&address={}&apikey={}"
-API_KEY = get_api_key()
+ETHERSCAN_ENDPOINT = "https://api.etherscan.io/api?module=contract&action=getsourcecode&address={}&apikey={}"
+AVALANCHE_ENDPOINT = "https://api.snowtrace.io/api?module=contract&action=getsourcecode&address={}&apikey={}"
 
-def download_contract(address):
+def download_contract(endpoint, api_key, address):
     Path("downloaded_contracts").mkdir(parents=True, exist_ok=True)
-    data = requests.get(ENDPOINT.format(address, API_KEY)).json()
+    data = requests.get(endpoint.format(address, api_key)).json()
     if data["status"] != '1':
         print(f"[ERROR] Failed to fetch contract for address {address}")
     else:
@@ -55,35 +61,50 @@ def download_contract(address):
         print(f"[SUCCESS] Fetched contract from address {address}")
 
 def main():
-    args = sys.argv
-    using_file = False
-    api_key = ""
-    address_count = 0
+    api_key = None
     addresses = None
-
-    # If the user specifies -f, we have three arguments. Else we have two
-    if '-f' in args and len(args) != 3:
-        print_usage()
-        exit(0)
-    elif '-f' not in args and len(args) != 2:
-        print_usage()
-        exit(0)
     
-    using_file = '-f' in args
+    # Setup argument parser
+    parser = argparse.ArgumentParser(description='Verified Contract Downloader')
+    parser.add_argument('-a', '--address', type=str, help='Address of verified contract')
+    parser.add_argument('-e', '--endpoint', type=str, choices=['etherscan', 'snowscan'], help='\'etherscan\' or \'snowscan\'')
+    parser.add_argument('-f', '--filename', type=str, help='file with list of contract addresses')
 
-    # Get the address or addresses of the contracts
-    if not using_file:
-        addresses = [args[1]]
-    else:
+    args = parser.parse_args()
+
+    # Endpoint is required
+    if args.endpoint is None:
+        print("[ERROR] An endpoint is required")
+        parser.print_help()
+        exit(1)
+
+    # Either an address or a file with addresses is required
+    if args.address is None and args.filename is None:
+        print("[ERROR] Need a filename with addresses, or an address by itself")
+        parser.print_help()
+        exit(1)
+
+    # If a file and an address are both provided, use file
+    if args.filename is not None:
         with open(args[2], 'r') as f:
-            addresses = f.read().split('\n')  
+            addresses = f.read().split('\n') 
+    else:
+        addresses = [args.address]
     
     # The addresses array might have an empty string at the end
     if addresses[-1] == '':
         addresses = addresses[:-1]
     
+    # Get the correct endpoint
+    if args.endpoint == 'etherscan':
+        endpoint = ETHERSCAN_ENDPOINT
+    else:
+        endpoint = AVALANCHE_ENDPOINT
+    
+    api_key = get_api_key(endpoint)
+
     for address in addresses:
-        download_contract(address)
+        download_contract(endpoint, api_key, address)
 
 if __name__ == '__main__':
     main()
