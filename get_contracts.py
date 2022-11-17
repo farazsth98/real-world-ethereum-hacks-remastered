@@ -7,8 +7,8 @@ import argparse
 def print_usage():
     print(f'''Verified Contract Downloader
 Usage: 
-* python3 {sys.argv[0]} -e [etherscan|snowscan] <contract_address>
-* python3 {sys.argv[0]} -e [etherscan|snowscan] -f <filename.txt>
+* python3 {sys.argv[0]} -e [etherscan|snowtrace] <contract_address>
+* python3 {sys.argv[0]} -e [etherscan|snowtrace] -f <filename.txt>
 
 filename.txt must contain contract addresses, one on each line.
 ''')
@@ -80,7 +80,7 @@ def main():
     # Setup argument parser
     parser = argparse.ArgumentParser(description='Verified Contract Downloader')
     parser.add_argument('-a', '--address', type=str, help='Address of verified contract')
-    parser.add_argument('-e', '--endpoint', type=str, choices=['etherscan', 'snowscan'], help='\'etherscan\' or \'snowscan\'')
+    parser.add_argument('-e', '--endpoint', type=str, choices=['etherscan', 'snowtrace'], help='\'etherscan\' or \'snowtrace\'')
     parser.add_argument('-f', '--filename', type=str, help='file with list of contract addresses')
 
     args = parser.parse_args()
