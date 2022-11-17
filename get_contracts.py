@@ -40,21 +40,34 @@ def download_contract(endpoint, api_key, address):
     if data["status"] != '1':
         print(f"[ERROR] Failed to fetch contract for address {address}")
     else:
-        # Get the source code of each file
-        sources = json.loads(data["result"][0]['SourceCode'][1:-1])['sources']
+        # There might be one source file, or multiple. In the case of one file,
+        # this json.loads() will fail
+        try:
+            sources = json.loads(data["result"][0]['SourceCode'][1:-1])['sources']
 
-        # First, make a directory for this contract by using the first filename
-        # we encounter, skipping the .sol extension
-        # TODO: Handle directory name collisions here
-        directory_name = list(sources.keys())[0].split('/')[-1][:-4]
-        Path(f'downloaded_contracts/{directory_name}').mkdir(parents=True, exist_ok=True)
+            # First, make a directory for this contract by using the first filename
+            # we encounter, skipping the .sol extension
+            # TODO: Handle directory name collisions here
+            directory_name = list(sources.keys())[0].split('/')[-1][:-4]
+            Path(f'downloaded_contracts/{directory_name}').mkdir(parents=True, exist_ok=True)
 
-        for key in sources.keys():
-            filename = key.split('/')[-1]
-            content = sources[key]['content']
+            for key in sources.keys():
+                filename = key.split('/')[-1]
+                content = sources[key]['content']
+
+                with open(f"downloaded_contracts/{directory_name}/{filename}", 'w') as f:
+                    f.write(content)
+        except:
+            source = data["result"][0]['SourceCode']
+            
+            # Ask the user what filename they want I guess
+            filename = input("What do you want to name this contract? (add .sol extension): ")
+            
+            directory_name = filename[:-4]
+            Path(f'downloaded_contracts/{directory_name}').mkdir(parents=True, exist_ok=True)
 
             with open(f"downloaded_contracts/{directory_name}/{filename}", 'w') as f:
-                f.write(content)
+                f.write(source)
 
         #source = source.replace('\\\\n', '\\n')
         #print(sources)
