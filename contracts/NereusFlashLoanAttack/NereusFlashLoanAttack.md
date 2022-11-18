@@ -2,17 +2,31 @@ This document just tracks my notes when attempting to recreate this attack.
 
 # Step 1 - Reverse engineer the transaction
 
-[The transaction](https://snowtrace.io/tx/0x0ab12913f9232b27b0664cd2d50e482ad6aa896aeb811b53081712f42d54c026) has 70 logs. Each log is an emitted event, but there is no call stack.
+[The attacker transaction](https://snowtrace.io/tx/0x0ab12913f9232b27b0664cd2d50e482ad6aa896aeb811b53081712f42d54c026#eventlog) has 70 logs. Each log is an emitted event, but there is no call stack.
 
 It's a little hard to parse the event logs, because events are emitted only during certain functions. Lots of reading is required to figure out how this happens. I won't list the events from first to last, instead I'll note the most important ones in the way that makes sense.
 
+# How to read logs
+
+The "Address" is the address at which the event was triggered. For example, Event 2's address is `0xb97ef9ef8734c71904d8002f8b6bc66dd9c48a6e`, which is the address of the USDC token, so we know that USDC was transferred.
+
+The "Name" is the name of the event.
+
+The first "Topic" is a `keccak256` hash of the event name itself. For example, for the `Transfer` event, it would be:
+
+- `keccak256("Transfer(address,address,uin256)")` = 0xddf252ad1be2c89b69c2b068fc378daa952ba7f163c4a11628f55a4df523b3ef
+
+This is especially important to remember because some events don't have names. You have to look at the contract emitting it, and hash each event to see which one matches the first Topic.
+
+All the topics after the first are each parameter to the event. Sometimes the event log will decode a parameter and show it under Data.
+
 ### Events 2 and 71
 
-In Event 1, [this proxy contract](https://snowtrace.io/address/0x625e7708f30ca75bfd92586e17077590c60eb4cd) ([implementation contract here](https://snowtrace.io/address/0xdf9e4abdbd94107932265319479643d3b05809dc)) transfers 51,000,000 USDC to the attacker. 
+In Event 2, [this proxy contract](https://snowtrace.io/address/0x625e7708f30ca75bfd92586e17077590c60eb4cd) ([implementation contract here](https://snowtrace.io/address/0xa5ba6e5ec19a1bf23c857991c857db62b2aa187b)) transfers 51,000,000 USDC to the attacker. This proxy contract is for the token `aAvaUSDC`.
 
 In order to figure out why, we look at the very last event, 71, which is a `flashLoan` event emitted by [this contract](https://snowtrace.io/address/0x794a61358d6845594f94dc1db02a252b5b4814ad) ([implementation here](https://snowtrace.io/address/0xdf9e4abdbd94107932265319479643d3b05809dc#code)) through the `_handleFlashLoanRepayment()` method inside `FlashLoanLogic.sol` in the implementation contract above. This function is called by `executeFlashLoanSimple()`, which is called by `flashLoanSimple()` inside `Pool.sol`.
 
-This tells us that the majority of the attack happens in the flash loan callback, as the very last event is the repayment of the flash loan, while the first event is the transfer of the tokens from the call to `transferUnderlyingTo()` inside `executeFlashLoanSimple()`.
+This tells us that the majority of the attack happens in the flash loan callback, as the very last event is the repayment of the flash loan, while the first event is the transfer of the tokens from the call to `transferUnderlyingTo()` inside `executeFlashLoanSimple()`. Here, `transferUnderlyingTo()` will call `aAvaUSDC`'s `transferUnderlyingTo()` function, which will transfer the underlying token (in this case, USDC) to us.
 
 ### Events 3 to 9
 
