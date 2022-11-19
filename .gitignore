@@ -8,3 +8,5 @@ git-crypt-key
 .env
 tenderly.yaml
 downloaded_contracts/
+contracts/TestContract/
+test/testcontract/
