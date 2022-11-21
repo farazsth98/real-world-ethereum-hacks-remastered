@@ -8,6 +8,7 @@
     "prettier": "prettier --write ./test",
     "templedao": "npx hardhat test test/templedao_attack/templedao_attack.test.ts",
     "nereus": "npx hardhat test test/nereusfinance_attack/nereusfinance_attack.test.ts",
+    "sportsdao": "npx hardhat test test/sportsdao_attack/sportsdao_attack.test.ts",
     "testcontract": "npx hardhat test test/testcontract/testcontract.test.ts"
   },
   "keywords": [],
