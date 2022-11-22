@@ -38,12 +38,6 @@ interface IPancakeRouter {
       uint256 amountB,
       uint256 liquidity
     );
-
-  function quote(
-    uint256,
-    uint256,
-    uint256
-  ) external pure returns (uint256);
 }
 
 interface IBEP20 {
@@ -64,12 +58,6 @@ interface IBEP20 {
   ) external returns (bool);
 
   function getReward() external;
-
-  function PerTokenRewardLast() external view returns (uint256);
-
-  function totalStakeReward() external view returns (uint256);
-
-  function lastTotalStakeReward() external view returns (uint256);
 }
 
 interface IBEP20Pair is IBEP20 {
