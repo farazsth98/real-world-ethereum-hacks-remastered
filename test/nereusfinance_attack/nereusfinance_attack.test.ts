@@ -57,7 +57,7 @@ describe('Nereus Finance Exploit', async () => {
     await attackerContract.exploit();
 
     const afterBalance = await usdcContract.balanceOf(attackerContract.address);
-    console.log(`[+] USDC Balance before exploit: ${afterBalance / 1e6}`);
+    console.log(`[+] USDC Balance after exploit: ${afterBalance / 1e6}`);
 
     expect(beforeBalance).to.be.lt(afterBalance);
   });
