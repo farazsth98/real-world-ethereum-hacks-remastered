@@ -9,7 +9,7 @@ dotenv.config();
 const { ETH_ARCHIVE_URL, AV_ARCHIVE_URL, BSC_ARCHIVE_URL } = process.env;
 
 // Just a sanity check, at least one archive URL should be set
-if (!ETH_ARCHIVE_URL || !AV_ARCHIVE_URL || !BSC_ARCHIVE_URL)
+if (!ETH_ARCHIVE_URL && !AV_ARCHIVE_URL && !BSC_ARCHIVE_URL)
   throw new Error(
     `An archive URL has not been set in .env. Copy .env.example to .env and set the appropriate env var`,
   );
